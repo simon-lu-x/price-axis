@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>price-axis — live spec</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --panel: #fff; --ink: #1a1a18; --muted: #6b6b66;
+    --line: #e3e3df; --grid: #d8d8d3; --series: #2f6f4f; --band: #2f6f4f18;
+    --ok: #2e7d4f; --bad: #c0392b; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15151a; --panel: #1d1d23; --ink: #eceaf0; --muted: #9a99a5;
+      --line: #2e2e38; --grid: #34343f; --series: #6fce9e; --band: #6fce9e1f;
+      --ok: #6fce9e; --bad: #ff8b7d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 64px; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 21px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 28px; max-width: 62ch; }
+  .sub a { color: inherit; }
+  .layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+       color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 0 0 3px; }
+  .field { margin-bottom: 12px; }
+  input[type=number] {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--ink); font: 13px var(--mono);
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .presets button {
+    font: 12px inherit; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  .presets button:hover { border-color: var(--muted); }
+  svg { width: 100%; height: auto; display: block; }
+  .chart-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  td, th { text-align: left; padding: 5px 8px 5px 0; vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; white-space: nowrap; width: 1%; }
+  .mono { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+  .inv { display: grid; gap: 4px; margin-top: 4px; }
+  .inv div { font-size: 12.5px; display: flex; gap: 8px; align-items: baseline; }
+  .tag { font: 600 11px var(--mono); }
+  .pass .tag { color: var(--ok); } .fail .tag { color: var(--bad); }
+  .fail { color: var(--bad); }
+  .err { color: var(--bad); font-family: var(--mono); font-size: 13px; }
+  .stack { display: grid; gap: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>price-axis</h1>
+  <p class="sub">
+    A chart axis is the small piece of a product where "it looks wrong" is the only
+    feedback you get. This page runs the rules in
+    <a href="../SPEC.md">SPEC.md</a> live: change the range, watch the step, the decimals
+    and the bounds fall out of it, and watch the eight post-conditions hold. Try to break it.
+  </p>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="layout">
+    <form class="panel" id="controls">
+      <h2>Input</h2>
+      <div class="row">
+        <div class="field"><label for="dataMin">data min</label>
+          <input type="number" id="dataMin" step="any" value="100"></div>
+        <div class="field"><label for="dataMax">data max</label>
+          <input type="number" id="dataMax" step="any" value="200"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="maxTicks">max ticks</label>
+          <input type="number" id="maxTicks" min="3" step="1" value="8"></div>
+        <div class="field"><label for="padding">padding</label>
+          <input type="number" id="padding" min="0" step="0.01" value="0.05"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="minDecimals">min decimals</label>
+          <input type="number" id="minDecimals" min="0" step="1" value="0"></div>
+        <div class="field"><label for="maxDecimals">max decimals</label>
+          <input type="number" id="maxDecimals" min="0" step="1" value="6"></div>
+      </div>
+    </form>
+
+    <div class="stack">
+      <div class="panel chart-wrap" id="chart"></div>
+      <div class="panel">
+        <h2>Result</h2>
+        <table id="result"></table>
+      </div>
+      <div class="panel">
+        <h2>Post-conditions</h2>
+        <div class="inv" id="invariants"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { computeAxis, checkInvariants, AxisError } from "../js/price-axis.mjs";
+
+const INVARIANTS = {
+  I1: "every tick is a multiple of the step",
+  I2: "the axis covers the data",
+  I3: "the step is 1, 2 or 5 times a power of ten",
+  I4: "the tick count is within budget",
+  I5: "no two labels render the same",
+  I6: "decimals respect the floor and the ceiling",
+  I7: "the series is centred, or the budget is spent",
+  I8: "ticks are evenly spaced and increasing",
+};
+
+const PRESETS = [
+  ["Equities", { dataMin: 100, dataMax: 200 }],
+  ["Flat market", { dataMin: 42.5, dataMax: 42.5 }],
+  ["Exactly zero", { dataMin: 0, dataMax: 0 }],
+  ["Sub-cent", { dataMin: 0.00012345, dataMax: 0.00019876 }],
+  ["Forced widening", { dataMin: 1.0000001, dataMax: 1.0000002 }],
+  ["Micro-cap", { dataMin: 0.0000004102, dataMax: 0.0000009917 }],
+  ["Micro-cap, 8dp", { dataMin: 0.0000004102, dataMax: 0.0000009917, maxDecimals: 8 }],
+  ["Crosses zero", { dataMin: -3.5, dataMax: 7.25 }],
+  ["Tight budget", { dataMin: 100, dataMax: 200, maxTicks: 4 }],
+  ["Always 2dp", { dataMin: 10, dataMax: 14, minDecimals: 2 }],
+  ["Index level", { dataMin: 1999.98, dataMax: 2000.02 }],
+];
+
+const FIELDS = ["dataMin", "dataMax", "maxTicks", "padding", "minDecimals", "maxDecimals"];
+const el = (id) => document.getElementById(id);
+const DEFAULTS = { maxTicks: 8, padding: 0.05, minDecimals: 0, maxDecimals: 6 };
+
+const presetBar = el("presets");
+for (const [name, values] of PRESETS) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = name;
+  button.addEventListener("click", () => {
+    const merged = { ...DEFAULTS, ...values };
+    for (const field of FIELDS) if (field in merged) el(field).value = merged[field];
+    render();
+  });
+  presetBar.append(button);
+}
+
+/** A deterministic walk that touches both extremes, so the band is honest. */
+function series(lo, hi, n = 160) {
+  const points = [];
+  let seed = 7;
+  for (let i = 0; i < n; i += 1) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    points.push((seed / 0x7fffffff) * 0.82 + Math.sin(i / 11) * 0.09 + 0.09);
+  }
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const spread = max - min || 1;
+  return points.map((p) => lo + ((p - min) / spread) * (hi - lo));
+}
+
+function chart(axis, dataMin, dataMax) {
+  const W = 720, H = 320, L = 96, R = 18, T = 16, B = 26;
+  const span = axis.max - axis.min || 1;
+  const y = (v) => T + (1 - (v - axis.min) / span) * (H - T - B);
+  const parts = [];
+
+  parts.push(`<rect x="${L}" y="${y(dataMax)}" width="${W - L - R}" height="${Math.max(y(dataMin) - y(dataMax), 1)}" fill="var(--band)"/>`);
+
+  for (let i = 0; i < axis.ticks.length; i += 1) {
+    const ty = y(axis.ticks[i]);
+    parts.push(`<line x1="${L}" x2="${W - R}" y1="${ty}" y2="${ty}" stroke="var(--grid)" stroke-width="1"/>`);
+    parts.push(`<text x="${L - 10}" y="${ty + 4}" text-anchor="end" fill="var(--muted)" font-family="var(--mono)" font-size="11.5">${axis.labels[i]}</text>`);
+  }
+
+  const points = series(dataMin, dataMax);
+  const path = points
+    .map((v, i) => `${i ? "L" : "M"}${(L + (i / (points.length - 1)) * (W - L - R)).toFixed(2)},${y(v).toFixed(2)}`)
+    .join(" ");
+  parts.push(`<path d="${path}" fill="none" stroke="var(--series)" stroke-width="1.6" stroke-linejoin="round"/>`);
+  parts.push(`<line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--line)" stroke-width="1"/>`);
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="price chart with a computed axis">${parts.join("")}</svg>`;
+}
+
+function render() {
+  const raw = {};
+  for (const field of FIELDS) raw[field] = Number(el(field).value);
+
+  let axis;
+  try {
+    axis = computeAxis(raw.dataMin, raw.dataMax, {
+      maxTicks: raw.maxTicks,
+      padding: raw.padding,
+      minDecimals: raw.minDecimals,
+      maxDecimals: raw.maxDecimals,
+    });
+  } catch (error) {
+    if (!(error instanceof AxisError)) throw error;
+    el("chart").innerHTML = `<p class="err">${error.message}</p>`;
+    el("result").innerHTML = "";
+    el("invariants").innerHTML = `<div class="fail"><span class="tag">rejected</span><span>the spec rejects these inputs rather than repairing them</span></div>`;
+    return;
+  }
+
+  el("chart").innerHTML = chart(axis, raw.dataMin, raw.dataMax);
+  el("result").innerHTML = [
+    ["step", axis.step],
+    ["decimals", axis.decimals],
+    ["ticks", axis.ticks.length],
+    ["bounds", `${axis.labels[0]} … ${axis.labels[axis.labels.length - 1]}`],
+    ["flat", axis.flat],
+    ["labels", axis.labels.join("  ")],
+  ].map(([k, v]) => `<tr><th>${k}</th><td class="mono">${v}</td></tr>`).join("");
+
+  const failures = checkInvariants(
+    axis, raw.dataMin, raw.dataMax, raw.maxTicks, raw.minDecimals, raw.maxDecimals,
+  );
+  el("invariants").innerHTML = Object.entries(INVARIANTS).map(([id, description]) => {
+    const failure = failures.find((f) => f.startsWith(id));
+    const state = failure ? "fail" : "pass";
+    return `<div class="${state}"><span class="tag">${failure ? "✗" : "✓"} ${id}</span><span>${failure || description}</span></div>`;
+  }).join("");
+}
+
+el("controls").addEventListener("input", render);
+render();
+</script>
+</body>
+</html>
