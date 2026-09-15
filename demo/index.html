@@ -59,6 +59,28 @@
   .fail { color: var(--bad); }
   .err { color: var(--bad); font-family: var(--mono); font-size: 15px; }
   .stack { display: grid; gap: 18px; }
+  details.intro { margin: 0 0 22px; border: 1px solid var(--line); border-radius: 10px;
+                  background: var(--panel); }
+  details.intro summary { cursor: pointer; padding: 13px 18px; font-weight: 600;
+                          list-style: none; position: relative; }
+  details.intro summary::-webkit-details-marker { display: none; }
+  /* The marker hangs in the gutter so the title lines up with the body below it. */
+  details.intro summary::before { content: "\25B8"; color: var(--muted);
+                                  position: absolute; left: 6px; }
+  details.intro[open] summary::before { content: "\25BE"; }
+  details.intro summary:focus { outline: none; }
+  details.intro summary:focus-visible { outline: 2px solid var(--muted); outline-offset: -2px;
+                                        border-radius: 9px; }
+  details.intro .body { padding: 0 18px 18px; max-width: 74ch; }
+  details.intro p { margin: 0 0 13px; }
+  details.intro dl { margin: 0; display: grid; grid-template-columns: max-content 1fr;
+                     gap: 6px 16px; }
+  details.intro dt { font-weight: 600; }
+  details.intro dd { margin: 0; color: var(--muted); }
+  .caption { margin: 0 0 15px; padding: 0 0 14px; border-bottom: 1px solid var(--line);
+             color: var(--muted); max-width: 80ch; }
+  .caption strong { color: var(--ink); font-weight: 600; }
+  .caption:empty { display: none; }
 </style>
 </head>
 <body>
@@ -70,6 +92,34 @@
     <a href="../SPEC.md">SPEC.md</a> live: change the range, watch the step, the decimals
     and the bounds fall out of it, and watch the eight post-conditions hold. Try to break it.
   </p>
+
+  <details class="intro">
+    <summary>What am I looking at?</summary>
+    <div class="body">
+      <p>
+        Before a price chart can draw anything it has to settle three questions: where the
+        horizontal lines go, what numbers to print beside them, and how much room to leave
+        above and below the series. Get any of them wrong and the only feedback you will
+        ever get is that the chart looks wrong.
+      </p>
+      <p>
+        This page settles those questions live. Change the range on the left; everything on
+        the right recomputes. <strong>The chart</strong> draws a synthetic series across the
+        range you set, shades that range, and rules a line at each tick.
+        <strong>Result</strong> is what fell out: the step between ticks, the decimals each
+        label carries, the count, the bounds. <strong>Post-conditions</strong> re-checks the
+        eight properties from SPEC.md on every keystroke; the same eight are asserted twenty
+        thousand times over in each test suite.
+      </p>
+      <dl>
+        <dt>data min / max</dt><dd>the low and the high of the series</dd>
+        <dt>max ticks</dt><dd>the budget for horizontal lines</dd>
+        <dt>padding</dt><dd>headroom above and below, as a fraction of the span</dd>
+        <dt>min decimals</dt><dd>a floor, for instruments always quoted to a fixed precision</dd>
+        <dt>max decimals</dt><dd>the ceiling the step has to stay renderable under</dd>
+      </dl>
+    </div>
+  </details>
 
   <div class="presets" id="presets"></div>
 
@@ -97,7 +147,10 @@
     </form>
 
     <div class="stack">
-      <div class="panel chart-wrap" id="chart"></div>
+      <div class="panel">
+        <p class="caption" id="caption"></p>
+        <div class="chart-wrap" id="chart"></div>
+      </div>
       <div class="panel">
         <h2>Result</h2>
         <table id="result"></table>
@@ -125,31 +178,63 @@ const INVARIANTS = {
 };
 
 const PRESETS = [
-  ["Equities", { dataMin: 100, dataMax: 200 }],
-  ["Flat market", { dataMin: 42.5, dataMax: 42.5 }],
-  ["Exactly zero", { dataMin: 0, dataMax: 0 }],
-  ["Sub-cent", { dataMin: 0.00012345, dataMax: 0.00019876 }],
-  ["Forced widening", { dataMin: 1.0000001, dataMax: 1.0000002 }],
-  ["Micro-cap", { dataMin: 0.0000004102, dataMax: 0.0000009917 }],
-  ["Micro-cap, 8dp", { dataMin: 0.0000004102, dataMax: 0.0000009917, maxDecimals: 8 }],
-  ["Crosses zero", { dataMin: -3.5, dataMax: 7.25 }],
-  ["Tight budget", { dataMin: 100, dataMax: 200, maxTicks: 4 }],
-  ["Always 2dp", { dataMin: 10, dataMax: 14, minDecimals: 2 }],
-  ["Index level", { dataMin: 1999.98, dataMax: 2000.02 }],
+  ["Equities", { dataMin: 100, dataMax: 200 },
+   "The unremarkable case, and the one to read first. Nothing is fighting anything else: " +
+   "the step, the bounds and the decimals all fall straight out of the rules."],
+  ["Flat market", { dataMin: 42.5, dataMax: 42.5 },
+   "The series never moves, so there is no span to scale to. R1 synthesises one and centres " +
+   "the value inside it. Without that rule the axis has zero height and the chart renders empty."],
+  ["Exactly zero", { dataMin: 0, dataMax: 0 },
+   "A flat series sitting at zero. The proportional fallback has nothing to be proportional " +
+   "to, so R1 has a second branch: the range becomes -1 to +1."],
+  ["Sub-cent", { dataMin: 0.00012345, dataMax: 0.00019876 },
+   "Small numbers, but nothing pathological yet. The step lands on 2e-5 and five decimals " +
+   "carry the labels comfortably."],
+  ["Forced widening", { dataMin: 1.0000001, dataMax: 1.0000002 },
+   "The series moves by one ten-millionth. Fine ticks would render several labels as the " +
+   "same string under a six-decimal ceiling, so R5 widens the step until they are distinct. " +
+   "This is the rule you cannot arrive at by asking what looks nice: it comes from the step " +
+   "and the label precision having to agree."],
+  ["Micro-cap", { dataMin: 0.0000004102, dataMax: 0.0000009917 },
+   "The same clash, taken further. Under a ceiling of six decimals the finest usable step is " +
+   "wider than the entire series, so the axis is forced coarse and its lower bound reaches " +
+   "below zero — a negative price. That is the ceiling you set, working as specified. " +
+   "Compare with the next preset."],
+  ["Micro-cap, 8dp", { dataMin: 0.0000004102, dataMax: 0.0000009917, maxDecimals: 8 },
+   "The same data with the ceiling raised to eight. The step drops to 2e-7, the axis fits the " +
+   "series, and the negative bound is gone. Both settings are in vectors.json, so the " +
+   "trade-off stays visible rather than becoming folklore."],
+  ["Crosses zero", { dataMin: -3.5, dataMax: 7.25 },
+   "Negative and positive in one range. Watch I7: the series is off-centre and stays that " +
+   "way, because the tick budget is spent. R6 loses to the budget by design, and the " +
+   "post-condition says so rather than quietly failing."],
+  ["Tight budget", { dataMin: 100, dataMax: 200, maxTicks: 4 },
+   "Four ticks for a range that would rather have eight. R5 widens the step until it fits, " +
+   "and the axis gets loose in exchange. Tightness and budget cannot both win."],
+  ["Always 2dp", { dataMin: 10, dataMax: 14, minDecimals: 2 },
+   "A precision floor of two. The geometry does not move at all — same step, same ticks — " +
+   "and only the labels change, from 9 to 9.00. Precision and layout are separate concerns."],
+  ["Index level", { dataMin: 1999.98, dataMax: 2000.02 },
+   "A tiny span sitting on a large value: six significant digits before the point and two " +
+   "after. The step has to be small while the numbers stay long."],
 ];
 
 const FIELDS = ["dataMin", "dataMax", "maxTicks", "padding", "minDecimals", "maxDecimals"];
 const el = (id) => document.getElementById(id);
 const DEFAULTS = { maxTicks: 8, padding: 0.05, minDecimals: 0, maxDecimals: 6 };
 
+/** Set by a preset, cleared the moment the inputs stop describing that preset. */
+let caption = "";
+
 const presetBar = el("presets");
-for (const [name, values] of PRESETS) {
+for (const [name, values, blurb] of PRESETS) {
   const button = document.createElement("button");
   button.type = "button";
   button.textContent = name;
   button.addEventListener("click", () => {
     const merged = { ...DEFAULTS, ...values };
     for (const field of FIELDS) if (field in merged) el(field).value = merged[field];
+    caption = `<strong>${name}.</strong> ${blurb}`;
     render();
   });
   presetBar.append(button);
@@ -194,6 +279,7 @@ function chart(axis, dataMin, dataMax) {
 }
 
 function render() {
+  el("caption").innerHTML = caption;
   const raw = {};
   for (const field of FIELDS) raw[field] = Number(el(field).value);
 
@@ -233,7 +319,11 @@ function render() {
   }).join("");
 }
 
-el("controls").addEventListener("input", render);
+// Typing a value of your own means the caption no longer describes what is on screen.
+el("controls").addEventListener("input", () => {
+  caption = "";
+  render();
+});
 render();
 </script>
 </body>
