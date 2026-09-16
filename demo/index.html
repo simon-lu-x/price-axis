@@ -46,6 +46,13 @@
     border: 1px solid var(--line); background: var(--panel); color: var(--ink);
   }
   .presets button:hover { border-color: var(--muted); }
+  .presets button[aria-pressed="true"] {
+    background: var(--series); color: var(--panel); border-color: var(--series);
+    box-shadow: 0 0 0 1px var(--series);
+  }
+  .presets button:focus-visible {
+    outline: 2px solid var(--series); outline-offset: 3px;
+  }
   svg { width: 100%; height: auto; display: block; }
   .chart-wrap { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 15px; }
@@ -225,16 +232,19 @@ const DEFAULTS = { maxTicks: 8, padding: 0.05, minDecimals: 0, maxDecimals: 6 };
 
 /** Set by a preset, cleared the moment the inputs stop describing that preset. */
 let caption = "";
+let selectedPreset = "Equities";
 
 const presetBar = el("presets");
 for (const [name, values, blurb] of PRESETS) {
   const button = document.createElement("button");
   button.type = "button";
+  button.setAttribute("aria-pressed", String(name === selectedPreset));
   button.textContent = name;
   button.addEventListener("click", () => {
     const merged = { ...DEFAULTS, ...values };
     for (const field of FIELDS) if (field in merged) el(field).value = merged[field];
     caption = `<strong>${name}.</strong> ${blurb}`;
+    selectedPreset = name;
     render();
   });
   presetBar.append(button);
@@ -279,6 +289,9 @@ function chart(axis, dataMin, dataMax) {
 }
 
 function render() {
+  for (const button of presetBar.querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.textContent === selectedPreset));
+  }
   el("caption").innerHTML = caption;
   const raw = {};
   for (const field of FIELDS) raw[field] = Number(el(field).value);
@@ -322,6 +335,7 @@ function render() {
 // Typing a value of your own means the caption no longer describes what is on screen.
 el("controls").addEventListener("input", () => {
   caption = "";
+  selectedPreset = null;
   render();
 });
 render();

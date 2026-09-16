@@ -14,21 +14,12 @@ precisely enough that someone else can implement them and you can check whether 
   that share no code
 - **[vectors.json](vectors.json)** — the conformance fixture both of them must reproduce
 
-## Why two implementations
+## Implementations and tests
 
-One implementation cannot tell you whether a specification is any good. The code becomes
-the real specification and the document is decoration. A second implementation in another
-language is the cheapest available stand-in for somebody else building from the document,
-and its job is to find what the document left out.
-
-It found something. Neither language guarantees that its library `pow` returns the
-correctly rounded double for `10^n`, so the two versions disagreed in the last bit until
-both were changed to parse the decimal literal `1e<n>` instead. SPEC.md says so now, in
-R3. Before the second implementation existed, nothing did.
-
-Both are written against SPEC.md and share nothing but `vectors.json`; both test suites
-assert **exact** equality against it, not approximate. A divergence in the last bit means
-the spec was underspecified, and the spec is what gets fixed.
+The JavaScript implementation powers the interactive demo; the Python version provides
+an additional implementation for comparison. Both are checked against 17 shared test
+cases, and each runs 20,000 generated input combinations to check the specification’s
+eight invariants.
 
 ## Run it
 
