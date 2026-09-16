@@ -8,7 +8,7 @@ wrong." This repository is the other half of that sentence: the rules written do
 precisely enough that someone else can implement them and you can check whether they did.
 
 - **[SPEC.md](SPEC.md)** — eight rules and eight post-conditions, with pseudocode
-- **[demo](demo/index.html)** — change the range, watch the rules and the post-conditions
+- **[Live demo](https://simon-lu-x.github.io/price-axis/demo/)** — change the range, watch the rules and the post-conditions
   resolve live
 - **[python/](python/price_axis.py)** and **[js/](js/price-axis.mjs)** — two implementations
   that share no code
