@@ -94,36 +94,29 @@
 <main>
   <h1>price-axis</h1>
   <p class="sub">
-    A chart axis is the small piece of a product where "it looks wrong" is the only
-    feedback you get. This page runs the rules in
-    <a href="../SPEC.md">SPEC.md</a> live: change the range, watch the step, the decimals
-    and the bounds fall out of it, and watch the eight post-conditions hold. Try to break it.
+    Explore how a price chart’s Y-axis adapts to different price ranges and display settings.
+    Choose a preset or enter your own values to see the tick spacing, labels and axis bounds update.
   </p>
 
   <details class="intro">
-    <summary>What am I looking at?</summary>
+    <summary>How to use this demo</summary>
     <div class="body">
       <p>
-        Before a price chart can draw anything it has to settle three questions: where the
-        horizontal lines go, what numbers to print beside them, and how much room to leave
-        above and below the series. Get any of them wrong and the only feedback you will
-        ever get is that the chart looks wrong.
+        Choose a preset to explore a particular scenario, such as flat prices or limited
+        decimal precision. You can also edit the inputs to try your own settings.
       </p>
       <p>
-        This page settles those questions live. Change the range on the left; everything on
-        the right recomputes. <strong>The chart</strong> draws a synthetic series across the
-        range you set, shades that range, and rules a line at each tick.
-        <strong>Result</strong> is what fell out: the step between ticks, the decimals each
-        label carries, the count, the bounds. <strong>Post-conditions</strong> re-checks the
-        eight properties from SPEC.md on every keystroke; the same eight are asserted twenty
-        thousand times over in each test suite.
+        <strong>The chart</strong> shows synthetic data within your chosen range, not real
+        market prices. <strong>Result</strong> lists the calculated tick spacing, decimal
+        places and axis bounds. <strong>Post-conditions</strong> shows whether the current
+        output satisfies the eight checks described in <a href="../SPEC.md">SPEC.md</a>.
       </p>
       <dl>
-        <dt>data min / max</dt><dd>the low and the high of the series</dd>
-        <dt>max ticks</dt><dd>the budget for horizontal lines</dd>
-        <dt>padding</dt><dd>headroom above and below, as a fraction of the span</dd>
-        <dt>min decimals</dt><dd>a floor, for instruments always quoted to a fixed precision</dd>
-        <dt>max decimals</dt><dd>the ceiling the step has to stay renderable under</dd>
+        <dt>data min / max</dt><dd>Lowest and highest values in the series</dd>
+        <dt>max ticks</dt><dd>Maximum number of horizontal grid lines</dd>
+        <dt>padding</dt><dd>Extra space on each side, as a fraction of the data range</dd>
+        <dt>min decimals</dt><dd>Minimum decimal places shown in tick labels</dd>
+        <dt>max decimals</dt><dd>Maximum decimal places shown in tick labels</dd>
       </dl>
     </div>
   </details>
