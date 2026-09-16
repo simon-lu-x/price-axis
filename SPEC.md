@@ -46,6 +46,13 @@ Ticks sit at integer multiples of a step of the form `m * 10^n`, where `m` is `1
 step is `niceStep(workingSpan / (maxTicks - 1))`: the smallest step that could fit inside
 the tick budget, so the resulting axis is the tightest one the constraints allow.
 
+`10^n` must be obtained by parsing the decimal literal `1e<n>`, not from a library `pow`.
+Parsing is correctly rounded on every platform; `pow` is not required to be, so two
+implementations that both look correct can return doubles differing in the last bit and
+then fail the conformance fixture. This clause was added after the JavaScript
+implementation exposed it; the first draft of this document did not say how to compute a
+power of ten at all.
+
 ### R4 — Snapping and coverage
 
 `axisMin = floor(workingMin / step) * step`, `axisMax = ceil(workingMax / step) * step`,

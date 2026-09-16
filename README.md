@@ -16,18 +16,26 @@ precisely enough that someone else can implement them and you can check whether 
 
 ## Why two implementations
 
-A specification is only as good as the agreement it produces between people who never
-spoke to each other. The Python and JavaScript versions here were written against
-SPEC.md and share nothing but `vectors.json`; both test suites assert **exact** equality
-against it, not approximate. If they ever diverge in the last bit, the spec was
-underspecified and the spec is what gets fixed.
+One implementation cannot tell you whether a specification is any good. The code becomes
+the real specification and the document is decoration. A second implementation in another
+language is the cheapest available stand-in for somebody else building from the document,
+and its job is to find what the document left out.
+
+It found something. Neither language guarantees that its library `pow` returns the
+correctly rounded double for `10^n`, so the two versions disagreed in the last bit until
+both were changed to parse the decimal literal `1e<n>` instead. SPEC.md says so now, in
+R3. Before the second implementation existed, nothing did.
+
+Both are written against SPEC.md and share nothing but `vectors.json`; both test suites
+assert **exact** equality against it, not approximate. A divergence in the last bit means
+the spec was underspecified, and the spec is what gets fixed.
 
 ## Run it
 
     # reference implementation, 72 tests including a 20,000-case sweep
     python3 -m pytest python/ -q
 
-    # independent port, 43 tests including its own sweep
+    # the JavaScript side, 43 tests including its own sweep
     node --test js/test.mjs
 
     # the demo needs a server, because it loads the module from ../js
